@@ -14,9 +14,10 @@ const schoolSchema = new mongoose.Schema(
         schoolLogo: {
             type: String,
         },
-        mongoUri: {
+        schoolDbName: {
             type: String,
             required: true,
+            unique: true,
         },
         status: {
             type: String,

@@ -1,4 +1,5 @@
 const School = require("../models/schools.model");
+const { getSchoolDbConnection } = require("../configs/db");
 
 // Helper function to generate schoolId
 // Format: SCHL + 5 digit number (SCHL00001, SCHL00002, ... SCHL99999, SCHL100000)
@@ -24,13 +25,33 @@ const createSchool = async (req, res) => {
         const {
             schoolName,
             schoolLogo,
-            mongoUri,
+            dbName,
             status,
             schoolAddress,
             schoolEmail,
             schoolContact,
             schoolWebsite,
         } = req.body;
+
+        // Validate dbName is provided
+        if (!dbName) {
+            return res.status(400).json({
+                success: false,
+                message: "dbName is required to create a school database",
+            });
+        }
+
+        // Generate schoolDbName with prefix format
+        const schoolDbName = `school-db-${dbName}`;
+
+        // Check if a school with this dbName already exists
+        const existingSchool = await School.findOne({ schoolDbName });
+        if (existingSchool) {
+            return res.status(400).json({
+                success: false,
+                message: `A school with database name '${schoolDbName}' already exists`,
+            });
+        }
 
         // Auto-generate schoolId
         const schoolId = await generateSchoolId();
@@ -39,7 +60,7 @@ const createSchool = async (req, res) => {
             schoolId,
             schoolName,
             schoolLogo,
-            mongoUri,
+            schoolDbName,
             status,
             schoolAddress,
             schoolEmail,
@@ -48,6 +69,23 @@ const createSchool = async (req, res) => {
         });
 
         const savedSchool = await newSchool.save();
+
+        // Initialize the school's database
+        // MongoDB creates databases lazily, so we create an initialization collection
+        try {
+            const schoolDb = getSchoolDbConnection(schoolDbName);
+            // Create an _init collection to ensure the database is created
+            await schoolDb.collection("_init").insertOne({
+                createdAt: new Date(),
+                schoolId: schoolId,
+                message: "Database initialized",
+            });
+            console.log(`✅ Database '${schoolDbName}' initialized successfully`);
+        } catch (dbError) {
+            console.error(`⚠️ Warning: Could not initialize database '${schoolDbName}':`, dbError.message);
+            // Note: We don't fail the school creation if DB init fails
+            // The database will be created when first collection is added
+        }
 
         return res.status(201).json({
             success: true,
