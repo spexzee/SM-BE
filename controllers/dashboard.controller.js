@@ -60,9 +60,9 @@ const getMenus = async (req, res) => {
         // Match menus either by role or explicit username in the access list
         const accessTokens = [user.role].filter(Boolean);
 
-        const menus = await Menu.find({
+          const menus = await Menu.find({
             menuAccessRoles: { $in: accessTokens },
-        }).sort({ menuOrder: 1 });
+        }, { menuAccessRoles: 0 }).sort({ menuOrder: 1 });
 
         return res.status(200).json({
             success: true,
